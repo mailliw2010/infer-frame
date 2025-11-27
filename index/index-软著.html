@@ -1,0 +1,1904 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI推理引擎软件 - NNDeploy</title>
+    
+    <!-- 原有的 React 应用资源 -->
+    <script defer src="/static/js/lib-axios.3ae5100a.js"></script>
+    <script defer src="/static/js/lib-react.e068bcda.js"></script>
+    <script defer src="/static/js/lib-router.3b6c3153.js"></script>
+    <script defer src="/static/js/904.154b73e2.js"></script>
+    <script defer src="/static/js/index.b0c2ddef.js"></script>
+    <link href="/static/css/904.2d505b48.css" rel="stylesheet">
+    <link href="/static/css/index.86d69fd6.css" rel="stylesheet">
+    
+    <style>
+        /* 基础重置 */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            width: 250px;
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px 0;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+            position: fixed;
+            height: 100%;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .sidebar-header {
+            padding: 24px 18px;
+            background-color: #34495e;
+            border-bottom: 1px solid #1a252f;
+        }
+
+        .sidebar-header h1 { font-size: 18px; margin: 0 0 6px 0; }
+        .sidebar-header p { margin: 0; color: #95a5a6; font-size: 12px; }
+
+        .menu-list { list-style: none; padding: 18px 0; margin: 0; }
+        .menu-list li { margin-bottom: 4px; }
+        .menu-list a { display: flex; align-items: center; padding: 12px 18px; color: #ecf0f1; text-decoration: none; border-left: 3px solid transparent; transition: all .2s; }
+        .menu-list a:hover { background: #34495e; border-left-color: #3498db; }
+        .menu-list a.active { background: #3498db; border-left-color: #f39c12; }
+        .menu-list a span.icon { width: 26px; display: inline-block; }
+
+        .main-content { margin-left: 250px; min-height: 100vh; }
+        .top-bar { background: #fff; padding: 14px 26px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
+        .top-bar h2 { margin: 0; font-size: 20px; color: #2c3e50; }
+        .user-info { color: #7f8c8d; }
+
+        .page-content { padding: 20px 26px; }
+
+        .content-card { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); margin-bottom: 18px; }
+        .content-card h3 { margin: 0 0 12px 0; font-size: 16px; color: #2c3e50; }
+
+        /* 模型管理 */
+        .model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .model-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 8px; padding: 14px; }
+        .model-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+        .model-name { font-weight:600; color:#2c3e50; }
+        .model-status { padding:4px 10px; border-radius:12px; font-size:12px; }
+        .status-active { background:#d4edda; color:#155724; }
+        .status-inactive { background:#f8d7da; color:#721c24; }
+
+        /* 流水线 */
+        .pipeline-options { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+        .pipeline-option { background:#fff; border:1px solid #e8e8e8; border-radius:8px; padding:18px; text-align:center; cursor:pointer; }
+        .pipeline-option.selected { border-color:#3498db; background:#eaf5ff; }
+        .pipeline-icon { font-size:36px; margin-bottom:8px; }
+
+    /* 工作流视图 */
+    .workflow-summary { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:14px; }
+    .workflow-summary-card { background:#f7f9fc; border:1px solid #e1e6ef; border-radius:10px; padding:18px; box-shadow:0 2px 4px rgba(36,60,120,0.06); }
+    .workflow-summary-card .card-title { font-size:13px; color:#617089; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:6px; }
+    .workflow-summary-card .card-value { font-size:20px; font-weight:600; color:#2c3e50; margin-bottom:6px; }
+    .workflow-summary-card .card-subtitle { font-size:12px; color:#7f8c8d; }
+    .workflow-summary-card .card-icon { font-size:24px; margin-bottom:8px; }
+
+    .workflow-diagram { display:flex; gap:16px; align-items:stretch; overflow-x:auto; padding-bottom:10px; }
+    .workflow-step { position:relative; flex:0 0 240px; background:#fff; border:1px solid #e1e6ef; border-radius:12px; padding:18px; box-shadow:0 6px 16px rgba(35,70,130,0.06); }
+    .workflow-step::after { content:'➜'; position:absolute; right:-20px; top:50%; transform:translateY(-50%); font-size:20px; color:#c3cbe0; }
+    .workflow-step:last-child::after { display:none; }
+    .workflow-step h4 { margin:0 0 8px 0; font-size:16px; color:#2c3e50; }
+    .workflow-step p { margin:0; font-size:13px; color:#66758c; line-height:1.5; }
+    .workflow-icon { font-size:30px; margin-bottom:10px; }
+    .workflow-tags { margin-top:14px; display:flex; flex-wrap:wrap; gap:8px; }
+    .workflow-tag { background:#eef3fb; color:#356ac3; padding:4px 10px; border-radius:14px; font-size:12px; }
+
+    .workflow-detail-section { margin-bottom:18px; }
+    .workflow-detail-section h4 { margin:0 0 10px 0; font-size:15px; color:#2c3e50; }
+    .workflow-detail-list { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:10px 18px; font-size:13px; color:#4a566c; }
+        .workflow-detail-item { background:#f8faff; border:1px solid #e1e6ef; border-radius:10px; padding:10px 12px; }
+        .workflow-detail-item strong { color:#2c3e50; font-weight:600; }
+
+        /* 工作流配置编辑 */
+        .config-modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; }
+        .config-modal.show { display:flex; }
+        .config-modal-content { background:#fff; border-radius:12px; width:90%; max-width:800px; max-height:85vh; overflow-y:auto; box-shadow:0 10px 40px rgba(0,0,0,0.3); }
+        .config-modal-header { padding:20px 24px; border-bottom:1px solid #e8e8e8; display:flex; justify-content:space-between; align-items:center; }
+        .config-modal-header h3 { margin:0; font-size:18px; color:#2c3e50; }
+        .config-modal-close { background:none; border:none; font-size:24px; color:#7f8c8d; cursor:pointer; padding:0; width:30px; height:30px; }
+        .config-modal-close:hover { color:#e74c3c; }
+        .config-modal-body { padding:24px; }
+        .config-section { margin-bottom:24px; }
+        .config-section h4 { margin:0 0 12px 0; font-size:15px; color:#2c3e50; border-left:3px solid #3498db; padding-left:10px; }
+        .config-form-group { margin-bottom:16px; }
+        .config-form-group label { display:block; margin-bottom:6px; font-size:13px; color:#555; font-weight:500; }
+        .config-form-group input, .config-form-group select { width:100%; padding:10px 12px; border:1px solid #ddd; border-radius:6px; font-size:14px; }
+        .config-form-group input:focus, .config-form-group select:focus { outline:none; border-color:#3498db; box-shadow:0 0 0 3px rgba(52,152,219,0.1); }
+        .config-form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .config-modal-footer { padding:16px 24px; border-top:1px solid #e8e8e8; display:flex; justify-content:flex-end; gap:12px; }
+        .config-btn { padding:10px 20px; border:none; border-radius:6px; font-size:14px; font-weight:500; cursor:pointer; transition:all 0.3s; }
+        .config-btn-primary { background:#3498db; color:white; }
+        .config-btn-primary:hover { background:#2980b9; }
+        .config-btn-secondary { background:#ecf0f1; color:#555; }
+        .config-btn-secondary:hover { background:#bdc3c7; }
+        .edit-config-btn { background:#3498db; color:white; border:none; padding:8px 16px; border-radius:6px; font-size:13px; cursor:pointer; margin-left:12px; }
+        .edit-config-btn:hover { background:#2980b9; }
+        .export-config-btn { background:#27ae60; color:white; border:none; padding:8px 16px; border-radius:6px; font-size:13px; cursor:pointer; margin-left:8px; }
+        .export-config-btn:hover { background:#229954; }
+        .import-config-btn { background:#f39c12; color:white; border:none; padding:8px 16px; border-radius:6px; font-size:13px; cursor:pointer; margin-left:8px; }
+        .import-config-btn:hover { background:#d68910; }
+        .add-workflow-btn { background:#27ae60; color:white; border:none; padding:8px 16px; border-radius:6px; font-size:13px; cursor:pointer; margin-left:8px; }
+        .add-workflow-btn:hover { background:#229954; }
+
+        /* 工作流列表 - 手风琴样式 */
+        .workflow-list { margin-top:20px; }
+        .workflow-item { background:#fff; border:1px solid #e1e6ef; border-radius:10px; margin-bottom:12px; overflow:hidden; }
+        .workflow-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; cursor:pointer; background:#f8faff; transition:background 0.3s; }
+        .workflow-header:hover { background:#eef3fb; }
+        .workflow-header.active { background:#e3f2fd; border-bottom:1px solid #e1e6ef; }
+        .workflow-title-section { display:flex; align-items:center; flex:1; }
+        .workflow-expand-icon { font-size:18px; margin-right:12px; transition:transform 0.3s; color:#3498db; }
+        .workflow-expand-icon.expanded { transform:rotate(90deg); }
+        .workflow-title { font-size:16px; font-weight:600; color:#2c3e50; margin-right:12px; }
+        .workflow-status { padding:4px 10px; border-radius:12px; font-size:12px; font-weight:500; }
+        .workflow-status.active { background:#d4edda; color:#155724; }
+        .workflow-status.inactive { background:#f8d7da; color:#721c24; }
+        .workflow-actions { display:flex; gap:8px; }
+        .workflow-action-btn { background:none; border:none; padding:6px 12px; border-radius:6px; font-size:13px; cursor:pointer; transition:all 0.3s; }
+        .workflow-action-btn:hover { background:#e8e8e8; }
+        .workflow-action-btn.edit { color:#3498db; }
+        .workflow-action-btn.delete { color:#e74c3c; }
+        .workflow-action-btn.activate { color:#27ae60; }
+        .workflow-action-btn.deactivate { color:#e67e22; }
+        .workflow-body { max-height:0; overflow:hidden; transition:max-height 0.3s ease-out; }
+        .workflow-body.expanded { max-height:2000px; transition:max-height 0.5s ease-in; }
+        .workflow-content { padding:20px; }
+        .workflow-summary-mini { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:16px; }
+        .workflow-summary-mini-item { background:#f8faff; padding:12px; border-radius:8px; border-left:3px solid #3498db; }
+        .workflow-summary-mini-item label { font-size:12px; color:#7f8c8d; display:block; margin-bottom:4px; }
+        .workflow-summary-mini-item value { font-size:14px; color:#2c3e50; font-weight:600; display:block; }
+
+        /* 监控 */
+        .monitor-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+        .monitor-card { background:#fff; border-radius:8px; padding:12px; }
+        .monitor-header { display:flex; justify-content:space-between; align-items:center; }
+        .monitor-title { font-weight:600; }
+        .monitor-value { font-weight:700; color:#3498db; }
+        .chart-container { width:100%; height:160px; }
+
+        /* 日志 */
+        .log-container { background:#1e1e1e; color:#d4d4d4; padding:14px; border-radius:8px; font-family:monospace; max-height:560px; overflow:auto; }
+        .log-entry { margin-bottom:8px; }
+        .log-time { color:#858585; margin-right:8px; }
+        .log-level-info { color:#4ec9b0; margin-right:6px; }
+        .log-level-warn { color:#dcdcaa; margin-right:6px; }
+        .log-level-error { color:#f48771; margin-right:6px; }
+
+        .hidden { display:none; }
+
+        /* 登录界面样式 */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .login-box {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+            width: 400px;
+            max-width: 90%;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            font-size: 28px;
+            color: #2c3e50;
+            margin: 0 0 8px 0;
+        }
+
+        .login-header p {
+            color: #7f8c8d;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .login-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .login-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .login-button:active {
+            transform: translateY(0);
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .login-hint {
+            margin-top: 20px;
+            text-align: center;
+            color: #95a5a6;
+            font-size: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        #app-container {
+            display: none;
+        }
+
+        #app-container.show {
+            display: block;
+        }
+    </style>
+    
+    <!-- 在 CSS 加载后立即检查登录状态，避免闪烁 -->
+    <script>
+        // 页面加载前立即检查登录状态，避免显示登录界面闪烁
+        (function() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            const currentHash = window.location.hash || '#/';
+
+            if (isLoggedIn === 'true') {
+                const style = document.createElement('style');
+                style.id = 'login-bypass-style';
+
+                let css = '#login-container { display: none !important; } #app-container { display: block !important; }';
+
+                if (currentHash === '#/workflow') {
+                    css += ' #page-dashboard { display: none !important; } #page-workflow { display: block !important; }';
+                } else if (currentHash === '#/models') {
+                    css += ' #page-dashboard { display: none !important; } #page-models { display: block !important; }';
+                } else if (currentHash === '#/pipeline') {
+                    css += ' #page-dashboard { display: none !important; } #page-pipeline { display: block !important; }';
+                } else if (currentHash === '#/monitor') {
+                    css += ' #page-dashboard { display: none !important; } #page-monitor { display: block !important; }';
+                } else if (currentHash === '#/logs') {
+                    css += ' #page-dashboard { display: none !important; } #page-logs { display: block !important; }';
+                }
+
+                style.textContent = css;
+                document.head.appendChild(style);
+            }
+        })();
+    </script>
+</head>
+<body>
+    <!-- 登录界面 -->
+    <div id="login-container" class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <h1>🤖 AI推理引擎软件 V1.0</h1>
+            </div>
+            <div class="error-message" id="error-message">用户名或密码错误</div>
+            <form class="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="username">用户名</label>
+                    <input type="text" id="username" name="username" placeholder="请输入用户名" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" id="password" name="password" placeholder="请输入密码" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="login-button">登录</button>
+            </form>
+            <div class="login-hint">
+                💡 提示：默认账号密码均为 <strong>admin</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主应用界面 -->
+    <div id="app-container">
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>AI推理引擎软件 V1.0</h1>
+        </div>
+        <ul class="menu-list">
+            <li><a href="#/" class="menu-link" data-page="dashboard" data-title="控制台概览"><span class="icon">💻</span>控制台概览</a></li>
+            <li><a href="#/workflow" class="menu-link" data-page="workflow" data-title="工作流配置"><span class="icon">⚙️</span>工作流配置</a></li>
+            <li><a href="#/pipeline" class="menu-link" data-page="pipeline" data-title="流水线管理"><span class="icon">🔄</span>流水线管理</a></li>
+            <li><a href="#/models" class="menu-link" data-page="models" data-title="模型管理"><span class="icon">🧠</span>模型管理</a></li>
+            <li><a href="#/monitor" class="menu-link" data-page="monitor" data-title="实时监控"><span class="icon">⚡</span>实时监控</a></li>
+            <li><a href="#/logs" class="menu-link" data-page="logs" data-title="系统日志"><span class="icon">📜</span>系统日志</a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h2 id="page-title">控制台概览</h2>
+            <div class="user-info">
+                当前用户: Admin &nbsp;|&nbsp; 
+                <a href="javascript:void(0)" onclick="handleLogout()" style="color:#3498db; text-decoration:none; cursor:pointer;">退出登录</a>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <!-- Dashboard: 控制台概览 -->
+            <div id="page-dashboard" class="page-container">
+                <!-- React 应用容器（用于 /design 等路由） -->
+                <div id="react-app-container">
+                    <div id="root"></div>
+                </div>
+                
+                <!-- 自定义概览内容（仅在根路径显示） -->
+                <div id="custom-dashboard">
+                <!-- 统计卡片 -->
+                <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:16px; margin-bottom:20px;">
+                    <div class="content-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white;">
+                        <div style="font-size:14px; opacity:0.9;">运行中的模型</div>
+                        <div style="font-size:32px; font-weight:700; margin:8px 0;">5</div>
+                        <div style="font-size:12px; opacity:0.8;">+ 2 个待部署</div>
+                    </div>
+                    <div class="content-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:white;">
+                        <div style="font-size:14px; opacity:0.9;">推理任务数</div>
+                        <div style="font-size:32px; font-weight:700; margin:8px 0;">1,247</div>
+                        <div style="font-size:12px; opacity:0.8;">今日执行</div>
+                    </div>
+                    <div class="content-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color:white;">
+                        <div style="font-size:14px; opacity:0.9;">平均推理时间</div>
+                        <div style="font-size:32px; font-weight:700; margin:8px 0;">12.3<span style="font-size:18px;">ms</span></div>
+                        <div style="font-size:12px; opacity:0.8;">↓ 8% vs 昨日</div>
+                    </div>
+                    <div class="content-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color:white;">
+                        <div style="font-size:14px; opacity:0.9;">系统吞吐量</div>
+                        <div style="font-size:32px; font-weight:700; margin:8px 0;">82<span style="font-size:18px;">fps</span></div>
+                        <div style="font-size:12px; opacity:0.8;">实时性能</div>
+                    </div>
+                </div>
+
+                <!-- 快速操作 -->
+                <div class="content-card">
+                    <h3>⚡ 快速操作</h3>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:12px; margin-top:12px;">
+                        <button onclick="window.location.hash='#/workflow'" style="background:#3498db; color:white; border:none; padding:14px; border-radius:6px; cursor:pointer; font-size:14px; font-weight:500;">
+                            ⚙️ 创建工作流
+                        </button>
+                        <button onclick="window.location.hash='#/models'" style="background:#2ecc71; color:white; border:none; padding:14px; border-radius:6px; cursor:pointer; font-size:14px; font-weight:500;">
+                            🧠 管理模型
+                        </button>
+                        <button onclick="window.location.hash='#/pipeline'" style="background:#e74c3c; color:white; border:none; padding:14px; border-radius:6px; cursor:pointer; font-size:14px; font-weight:500;">
+                            🔄 配置流水线
+                        </button>
+                        <button onclick="window.location.hash='#/monitor'" style="background:#f39c12; color:white; border:none; padding:14px; border-radius:6px; cursor:pointer; font-size:14px; font-weight:500;">
+                            ⚡ 查看监控
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 系统状态 -->
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                    <div class="content-card">
+                        <h3>📊 资源使用情况</h3>
+                        <div style="margin-top:12px;">
+                            <div style="margin-bottom:16px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                    <span style="font-size:13px; color:#555;">CPU</span>
+                                    <span style="font-size:13px; font-weight:600; color:#3498db;">45%</span>
+                                </div>
+                                <div style="background:#e8e8e8; height:8px; border-radius:4px; overflow:hidden;">
+                                    <div style="background:#3498db; height:100%; width:45%;"></div>
+                                </div>
+                            </div>
+                            <div style="margin-bottom:16px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                    <span style="font-size:13px; color:#555;">NPU</span>
+                                    <span style="font-size:13px; font-weight:600; color:#9b59b6;">68%</span>
+                                </div>
+                                <div style="background:#e8e8e8; height:8px; border-radius:4px; overflow:hidden;">
+                                    <div style="background:#9b59b6; height:100%; width:68%;"></div>
+                                </div>
+                            </div>
+                            <div style="margin-bottom:16px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                    <span style="font-size:13px; color:#555;">内存</span>
+                                    <span style="font-size:13px; font-weight:600; color:#2ecc71;">6.2 / 16 GB</span>
+                                </div>
+                                <div style="background:#e8e8e8; height:8px; border-radius:4px; overflow:hidden;">
+                                    <div style="background:#2ecc71; height:100%; width:39%;"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                    <span style="font-size:13px; color:#555;">显存</span>
+                                    <span style="font-size:13px; font-weight:600; color:#e67e22;">2.8 / 8 GB</span>
+                                </div>
+                                <div style="background:#e8e8e8; height:8px; border-radius:4px; overflow:hidden;">
+                                    <div style="background:#e67e22; height:100%; width:35%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="content-card">
+                        <h3>🔥 热门模型</h3>
+                        <div style="margin-top:12px;">
+                            <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f0f0f0;">
+                                <div>
+                                    <div style="font-weight:600; font-size:14px;">YOLOv8s</div>
+                                    <div style="color:#7f8c8d; font-size:12px;">目标检测</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="color:#2ecc71; font-weight:600;">892次</div>
+                                    <div style="color:#7f8c8d; font-size:12px;">今日调用</div>
+                                </div>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f0f0f0;">
+                                <div>
+                                    <div style="font-weight:600; font-size:14px;">RetinaFace</div>
+                                    <div style="color:#7f8c8d; font-size:12px;">人脸检测</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="color:#3498db; font-weight:600;">267次</div>
+                                    <div style="color:#7f8c8d; font-size:12px;">今日调用</div>
+                                </div>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; padding:10px 0;">
+                                <div>
+                                    <div style="font-weight:600; font-size:14px;">YOLOv5s</div>
+                                    <div style="color:#7f8c8d; font-size:12px;">目标检测</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="color:#9b59b6; font-weight:600;">88次</div>
+                                    <div style="color:#7f8c8d; font-size:12px;">今日调用</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div><!-- 关闭 custom-dashboard -->
+            </div><!-- 关闭 page-dashboard -->
+
+            <!-- Workflow 页面 -->
+            <div id="page-workflow" class="page-container hidden">
+                <div class="content-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h3 style="margin:0;">🔁 工作流配置列表</h3>
+                        <div>
+                            <button class="add-workflow-btn" onclick="addNewWorkflow()">➕ 新建工作流</button>
+                            <button class="export-config-btn" onclick="activateAllWorkflows()">✅ 全部激活</button>
+                            <button class="export-config-btn" onclick="deactivateAllWorkflows()">⏸️ 全部取消</button>
+                            <button class="export-config-btn" onclick="exportAllWorkflows()">📤 导出全部</button>
+                            <button class="import-config-btn" onclick="document.getElementById('importWorkflowsFile').click()">📥 导入</button>
+                            <input type="file" id="importWorkflowsFile" accept=".json" style="display:none;" onchange="importConfig(event)">
+                        </div>
+                    </div>
+                    <p style="color:#7f8c8d; margin-bottom:12px;">管理多个推理工作流，支持同时激活多个工作流。点击"✅ 激活"或"⏸️ 取消激活"按钮切换状态。</p>
+                    <div id="workflowList" class="workflow-list"></div>
+                </div>
+            </div>
+
+            <!-- Models 页面 -->
+            <div id="page-models" class="page-container hidden">
+                <div class="content-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h3 style="margin:0;">🧠 模型管理</h3>
+                        <div>
+                            <button class="add-workflow-btn" onclick="addNewModel()">➕ 新增模型</button>
+                            <button class="export-config-btn" onclick="refreshModels()">🔄 刷新列表</button>
+                        </div>
+                    </div>
+                    <p style="color:#7f8c8d; margin-bottom:10px;">管理和配置平台上的AI推理模型</p>
+                    <div class="model-grid" id="modelGrid"></div>
+                </div>
+            </div>
+
+            <!-- Pipeline 页面 -->
+            <div id="page-pipeline" class="page-container hidden">
+                <div class="content-card">
+                    <h3>🔄 流水线并行配置</h3>
+                    <p style="color:#7f8c8d; margin-bottom:10px;">选择并行模式以优化吞吐与延迟</p>
+                    <div class="pipeline-options" id="pipelineOptions"></div>
+                </div>
+            </div>
+
+            <!-- Monitor 页面 -->
+            <div id="page-monitor" class="page-container hidden">
+                <div class="monitor-grid" id="monitorGrid"></div>
+            </div>
+
+            <!-- Logs 页面 -->
+            <div id="page-logs" class="page-container hidden">
+                <div class="content-card">
+                    <h3>📜 系统日志</h3>
+                    <div class="log-container" id="logContainer"></div>
+                    </div>
+            </div>
+        </div>
+    </div>
+    </div> <!-- 关闭 app-container -->
+
+    <!-- 工作流配置编辑模态框 -->
+    <div id="configModal" class="config-modal">
+        <div class="config-modal-content">
+            <div class="config-modal-header">
+                <h3>⚙️ 编辑工作流配置</h3>
+                <button class="config-modal-close" onclick="closeConfigModal()">&times;</button>
+            </div>
+            <div class="config-modal-body">
+                <!-- 工作流信息 -->
+                <div class="config-section">
+                    <h4>工作流信息</h4>
+                    <div class="config-form-group">
+                        <label>工作流名称</label>
+                        <input type="text" id="config-workflow-name" placeholder="例如: 默认检测工作流">
+                    </div>
+                </div>
+                
+                <!-- 平台配置 -->
+                <div class="config-section">
+                    <h4>平台配置</h4>
+                    <div class="config-form-group">
+                        <label>当前平台</label>
+                        <select id="config-platform">
+                            <option value="ascend">Ascend (昇腾)</option>
+                            <option value="sophon">Sophon (算能)</option>
+                            <option value="jetson">Jetson (英伟达)</option>
+                            <option value="cpu">CPU</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 算法参数 -->
+                <div class="config-section">
+                    <h4>算法参数</h4>
+                    <div class="config-form-group">
+                        <label>模型名称</label>
+                        <input type="text" id="config-modelName" placeholder="例如: yolov8s_quant_310b.om">
+                    </div>
+                    <div class="config-form-row">
+                        <div class="config-form-group">
+                            <label>置信度阈值 (0-1)</label>
+                            <input type="number" id="config-confidence" step="0.01" min="0" max="1">
+                        </div>
+                        <div class="config-form-group">
+                            <label>NMS 阈值 (0-1)</label>
+                            <input type="number" id="config-nms" step="0.01" min="0" max="1">
+                        </div>
+                    </div>
+                    <div class="config-form-row">
+                        <div class="config-form-group">
+                            <label>多标签检测</label>
+                            <select id="config-multiLabel">
+                                <option value="false">关闭</option>
+                                <option value="true">开启</option>
+                            </select>
+                        </div>
+                        <div class="config-form-group">
+                            <label>OSD 渲染</label>
+                            <select id="config-osd">
+                                <option value="false">关闭</option>
+                                <option value="true">开启</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="config-form-group">
+                        <label>标签映射 (格式: 0:人,56:桌子)</label>
+                        <input type="text" id="config-labelMap" placeholder="例如: 0:人,56:桌子">
+                    </div>
+                </div>
+
+                <!-- 应用配置 -->
+                <div class="config-section">
+                    <h4>应用配置</h4>
+                    <div class="config-form-group">
+                        <label>模型目录</label>
+                        <input type="text" id="config-modelDir" placeholder="例如: demo/data/model">
+                    </div>
+                    <div class="config-form-row">
+                        <div class="config-form-group">
+                            <label>输入类型</label>
+                            <select id="config-inputType">
+                                <option value="directory">目录</option>
+                                <option value="rtsp stream">RTSP 流</option>
+                                <option value="mp4 file">MP4 文件</option>
+                            </select>
+                        </div>
+                        <div class="config-form-group">
+                            <label>无限循环</label>
+                            <select id="config-infinite">
+                                <option value="false">否</option>
+                                <option value="true">是</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="config-form-group">
+                        <label>输入路径</label>
+                        <input type="text" id="config-input" placeholder="例如: demo/data/image">
+                    </div>
+                    <div class="config-form-group">
+                        <label>输出路径</label>
+                        <input type="text" id="config-output" placeholder="例如: demo/out">
+                    </div>
+                    <div class="config-form-row">
+                        <div class="config-form-group">
+                            <label>推理频率 (fps)</label>
+                            <input type="number" id="config-inferFrequency" min="1" max="120">
+                        </div>
+                        <div class="config-form-group">
+                            <label>应用类型</label>
+                            <select id="config-appType">
+                                <option value="DETECTION">DETECTION</option>
+                                <option value="DETECTION_PROPERTY">DETECTION_PROPERTY</option>
+                                <option value="SEGMENT">SEGMENT</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="config-modal-footer">
+                <button class="config-btn config-btn-secondary" onclick="resetConfigToDefault()">重置默认</button>
+                <div style="flex:1;"></div>
+                <button class="config-btn config-btn-secondary" onclick="closeConfigModal()">取消</button>
+                <button class="config-btn config-btn-primary" onclick="saveConfig()">保存配置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 原有 React 资源 -->
+    <script src="/static/js/lib-axios.3ae5100a.js"></script>
+    <script src="/static/js/lib-react.e068bcda.js"></script>
+    <script src="/static/js/lib-router.3b6c3153.js"></script>
+    <script src="/static/js/904.154b73e2.js"></script>
+    <script src="/static/js/index.b0c2ddef.js"></script>
+
+    <script>
+        // ========== 登录逻辑 ==========
+        function handleLogin(event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('error-message');
+
+            // 验证账号密码
+            if (username === 'admin' && password === 'admin') {
+                // 登录成功，保存登录状态
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('username', username);
+                
+                // 隐藏登录界面，显示主应用
+                document.getElementById('login-container').style.display = 'none';
+                document.getElementById('app-container').classList.add('show');
+                
+                // 初始化应用
+                initApp();
+            } else {
+                // 登录失败，显示错误信息
+                errorMsg.classList.add('show');
+                setTimeout(() => {
+                    errorMsg.classList.remove('show');
+                }, 3000);
+            }
+        }
+
+        // 退出登录
+        function handleLogout() {
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('username');
+            location.reload();
+        }
+
+        // 检查登录状态
+        function checkLoginStatus() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            if (isLoggedIn === 'true') {
+                document.getElementById('login-container').style.display = 'none';
+                document.getElementById('app-container').classList.add('show');
+                initApp();
+            }
+        }
+
+        // ========== 应用逻辑 ==========
+        // 工作流配置列表（支持多个工作流）
+        let workflows = [];
+        let currentWorkflowId = null; // 当前正在编辑的工作流ID
+        let activeWorkflowId = null; // 当前激活的工作流ID
+
+        // 默认工作流模板
+        const defaultWorkflowTemplate = {
+            platform: {
+                current: 'ascend',
+                supported: ['ascend', 'sophon', 'jetson', 'cpu']
+            },
+            algo: {
+                modelName: 'yolov8s_quant_310b.om',
+                confidence: 0.6,
+                nms: 0.3,
+                multiLabel: false,
+                osd: true,
+                labelMap: { '0': '人', '56': '桌子' }
+            },
+            app: {
+                platform: 'ascend',
+                modelDir: 'demo/data/model',
+                inputType: 'directory',
+                input: 'demo/data/image',
+                infinite: true,
+                out: 'demo/out',
+                inferFrequency: 25,
+                type: 'DETECTION_PROPERTY',
+                osd: true,
+                service: { websocket: { port: null } },
+                fence: null
+            }
+        };
+
+        // 从 localStorage 加载工作流列表
+        function loadWorkflows() {
+            const savedWorkflows = localStorage.getItem('workflows');
+            if (savedWorkflows) {
+                try {
+                    workflows = JSON.parse(savedWorkflows);
+                    // 确保每个工作流都有 id 和 name
+                    workflows.forEach((wf, index) => {
+                        if (!wf.id) wf.id = 'wf_' + Date.now() + '_' + index;
+                        if (!wf.name) wf.name = '工作流 ' + (index + 1);
+                        if (wf.active === undefined) wf.active = index === 0;
+                    });
+                    // 找到激活的工作流
+                    const active = workflows.find(wf => wf.active);
+                    if (active) activeWorkflowId = active.id;
+                } catch (e) {
+                    console.error('Failed to load workflows:', e);
+                    initDefaultWorkflows();
+                }
+            } else {
+                initDefaultWorkflows();
+            }
+        }
+
+        // 初始化默认工作流
+        function initDefaultWorkflows() {
+            workflows = [
+                {
+                    id: 'wf_' + Date.now() + '_1',
+                    name: '默认检测工作流',
+                    active: true,
+                    config: JSON.parse(JSON.stringify(defaultWorkflowTemplate))
+                }
+            ];
+            activeWorkflowId = workflows[0].id;
+            saveWorkflows();
+        }
+
+        // 保存工作流列表到 localStorage
+        function saveWorkflows() {
+            try {
+                localStorage.setItem('workflows', JSON.stringify(workflows));
+            } catch (e) {
+                console.error('Failed to save workflows:', e);
+            }
+        }
+
+        const inputTypeDictionary = {
+            directory: '目录',
+            'rtsp stream': 'RTSP 流',
+            'mp4 file': 'MP4 文件'
+        };
+
+        function buildWorkflowSteps(platformDisplay) {
+            const workflowConfig = getActiveWorkflow()?.config || defaultWorkflowTemplate;
+            const inputTypeLabel = inputTypeDictionary[workflowConfig.app.inputType] || workflowConfig.app.inputType;
+            const labels = Object.values(workflowConfig.algo.labelMap).join(' / ');
+
+            return [
+                {
+                    icon: '📥',
+                    title: '数据输入',
+                    description: `从 ${workflowConfig.app.input} 目录获取图片或流式数据，支持无限循环读取。`,
+                    tags: [`输入类型: ${inputTypeLabel}`, `循环读取: ${workflowConfig.app.infinite ? '是' : '否'}`, `平台: ${platformDisplay}`]
+                },
+                {
+                    icon: '🧹',
+                    title: '预处理',
+                    description: '按照算法预设执行缩放、色彩及归一化等预处理，保障模型输入一致性。',
+                    tags: [`模型目录: ${workflowConfig.app.modelDir}`, `多标签: ${workflowConfig.algo.multiLabel ? '开启' : '关闭'}`]
+                },
+                {
+                    icon: '🧠',
+                    title: '模型推理',
+                    description: `加载 ${workflowConfig.algo.modelName} 模型，执行 ${workflowConfig.app.type} 推理任务。`,
+                    tags: [`置信度: ${workflowConfig.algo.confidence}`, `NMS: ${workflowConfig.algo.nms}`, `推理频率: ${workflowConfig.app.inferFrequency}fps`]
+                },
+                {
+                    icon: '🎨',
+                    title: '结果渲染',
+                    description: '根据标签映射绘制检测框及属性信息，输出可视化结果。',
+                    tags: [`OSD: ${workflowConfig.algo.osd ? '开启' : '关闭'}`, `标签: ${labels}`]
+                },
+                {
+                    icon: '📤',
+                    title: '结果输出',
+                    description: `将推理结果输出至 ${workflowConfig.app.out}，可按需扩展至实时流。`,
+                    tags: [`输出路径: ${workflowConfig.app.out}`, '扩展能力: 文件 / 流媒体']
+                }
+            ];
+        }
+
+        // 获取激活的工作流
+        function getActiveWorkflow() {
+            return workflows.find(wf => wf.id === activeWorkflowId);
+        }
+
+        // 获取工作流配置
+        function getWorkflowById(id) {
+            return workflows.find(wf => wf.id === id);
+        }
+
+        // 渲染工作流列表
+        function renderWorkflowList() {
+            const listEl = document.getElementById('workflowList');
+            if (!listEl) return;
+
+            if (workflows.length === 0) {
+                listEl.innerHTML = '<p style="text-align:center; color:#7f8c8d; padding:40px;">暂无工作流，点击"新建工作流"开始配置。</p>';
+                return;
+            }
+
+            listEl.innerHTML = workflows.map(workflow => {
+                const config = workflow.config;
+                const isActive = workflow.active;  // 使用 workflow.active 而不是比较 activeWorkflowId
+                
+                return `
+                    <div class="workflow-item" data-id="${workflow.id}">
+                        <div class="workflow-header" onclick="toggleWorkflow('${workflow.id}')">
+                            <div class="workflow-title-section">
+                                <span class="workflow-expand-icon" id="expand-icon-${workflow.id}">▶</span>
+                                <span class="workflow-title">${workflow.name}</span>
+                                <span class="workflow-status ${isActive ? 'active' : 'inactive'}">
+                                    ${isActive ? '✅ 已激活' : '⏸️ 未激活'}
+                                </span>
+                            </div>
+                            <div class="workflow-actions" onclick="event.stopPropagation()">
+                                <button class="workflow-action-btn ${isActive ? 'deactivate' : 'activate'}" 
+                                        onclick="activateWorkflow('${workflow.id}')" 
+                                        title="${isActive ? '取消激活' : '激活此工作流'}">
+                                    ${isActive ? '⏸️ 取消激活' : '✅ 激活'}
+                                </button>
+                                <button class="workflow-action-btn edit" onclick="openConfigModal('${workflow.id}')" title="编辑配置">✏️ 编辑</button>
+                                <button class="workflow-action-btn delete" onclick="deleteWorkflow('${workflow.id}')" title="删除工作流">🗑️ 删除</button>
+                            </div>
+                        </div>
+                        <div class="workflow-body" id="workflow-body-${workflow.id}">
+                            <div class="workflow-content">
+                                <!-- 摘要信息 -->
+                                <div class="workflow-summary-mini">
+                                    <div class="workflow-summary-mini-item">
+                                        <label>平台</label>
+                                        <value>${config.platform.current.toUpperCase()}</value>
+                                    </div>
+                                    <div class="workflow-summary-mini-item">
+                                        <label>模型</label>
+                                        <value>${config.algo.modelName}</value>
+                                    </div>
+                                    <div class="workflow-summary-mini-item">
+                                        <label>置信度/NMS</label>
+                                        <value>${config.algo.confidence} / ${config.algo.nms}</value>
+                                    </div>
+                                    <div class="workflow-summary-mini-item">
+                                        <label>推理频率</label>
+                                        <value>${config.app.inferFrequency} fps</value>
+                                    </div>
+                                    <div class="workflow-summary-mini-item">
+                                        <label>输入</label>
+                                        <value>${config.app.input}</value>
+                                    </div>
+                                    <div class="workflow-summary-mini-item">
+                                        <label>输出</label>
+                                        <value>${config.app.out}</value>
+                                    </div>
+                                </div>
+                                
+                                <!-- 推理流程图 -->
+                                <h4 style="margin:16px 0 12px 0; font-size:14px; color:#2c3e50;">推理流程</h4>
+                                <div class="workflow-diagram">
+                                    ${buildWorkflowStepsHTML(config)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 构建推理流程 HTML
+        function buildWorkflowStepsHTML(config) {
+            const platformDisplay = config.platform.current.charAt(0).toUpperCase() + config.platform.current.slice(1);
+            const inputTypeLabel = inputTypeDictionary[config.app.inputType] || config.app.inputType;
+            const labels = Object.values(config.algo.labelMap).join(' / ');
+
+            const steps = [
+                {
+                    icon: '📥',
+                    title: '数据输入',
+                    description: `从 ${config.app.input} 获取数据`,
+                    tags: [`${inputTypeLabel}`, `平台: ${platformDisplay}`]
+                },
+                {
+                    icon: '🧹',
+                    title: '预处理',
+                    description: '图像预处理与归一化',
+                    tags: [`模型目录: ${config.app.modelDir}`]
+                },
+                {
+                    icon: '🧠',
+                    title: '模型推理',
+                    description: `${config.algo.modelName}`,
+                    tags: [`置信度: ${config.algo.confidence}`, `NMS: ${config.algo.nms}`]
+                },
+                {
+                    icon: '🎨',
+                    title: '结果渲染',
+                    description: '绘制检测框与标签',
+                    tags: [`OSD: ${config.algo.osd ? '开' : '关'}`, `标签: ${labels}`]
+                },
+                {
+                    icon: '📤',
+                    title: '结果输出',
+                    description: `输出至 ${config.app.out}`,
+                    tags: [`${config.app.inferFrequency} fps`]
+                }
+            ];
+
+            return steps.map(step => `
+                <div class="workflow-step">
+                    <div class="workflow-icon">${step.icon}</div>
+                    <h4>${step.title}</h4>
+                    <p>${step.description}</p>
+                    <div class="workflow-tags">
+                        ${step.tags.map(tag => `<span class="workflow-tag">${tag}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 展开/折叠工作流
+        function toggleWorkflow(id) {
+            const body = document.getElementById(`workflow-body-${id}`);
+            const icon = document.getElementById(`expand-icon-${id}`);
+            const header = body.previousElementSibling;
+            
+            if (body.classList.contains('expanded')) {
+                body.classList.remove('expanded');
+                icon.classList.remove('expanded');
+                header.classList.remove('active');
+            } else {
+                // 折叠所有其他工作流
+                document.querySelectorAll('.workflow-body').forEach(el => {
+                    el.classList.remove('expanded');
+                });
+                document.querySelectorAll('.workflow-expand-icon').forEach(el => {
+                    el.classList.remove('expanded');
+                });
+                document.querySelectorAll('.workflow-header').forEach(el => {
+                    el.classList.remove('active');
+                });
+                
+                // 展开当前工作流
+                body.classList.add('expanded');
+                icon.classList.add('expanded');
+                header.classList.add('active');
+            }
+        }
+
+        // 新建工作流
+        function addNewWorkflow() {
+            const newId = 'wf_' + Date.now();
+            const newWorkflow = {
+                id: newId,
+                name: `工作流 ${workflows.length + 1}`,
+                active: false,
+                config: JSON.parse(JSON.stringify(defaultWorkflowTemplate))
+            };
+            
+            workflows.push(newWorkflow);
+            saveWorkflows();
+            renderWorkflowList();
+            
+            // 自动展开新建的工作流
+            setTimeout(() => toggleWorkflow(newId), 100);
+        }
+
+        // 激活/取消激活工作流（支持多个同时激活）
+        function activateWorkflow(id) {
+            const workflow = getWorkflowById(id);
+            if (!workflow) return;
+            
+            // 切换激活状态
+            workflow.active = !workflow.active;
+            
+            // 更新 activeWorkflowId（保持第一个激活的工作流ID，用于兼容）
+            const firstActive = workflows.find(wf => wf.active);
+            activeWorkflowId = firstActive ? firstActive.id : null;
+            
+            saveWorkflows();
+            renderWorkflowList();
+        }
+
+        // 全部激活
+        function activateAllWorkflows() {
+            workflows.forEach(wf => wf.active = true);
+            const firstActive = workflows.find(wf => wf.active);
+            activeWorkflowId = firstActive ? firstActive.id : null;
+            saveWorkflows();
+            renderWorkflowList();
+        }
+
+        // 全部取消激活
+        function deactivateAllWorkflows() {
+            workflows.forEach(wf => wf.active = false);
+            activeWorkflowId = null;
+            saveWorkflows();
+            renderWorkflowList();
+        }
+
+        // 删除工作流
+        function deleteWorkflow(id) {
+            if (workflows.length === 1) {
+                alert('至少需要保留一个工作流！');
+                return;
+            }
+            
+            if (!confirm('确定要删除此工作流吗？')) {
+                return;
+            }
+            
+            const index = workflows.findIndex(wf => wf.id === id);
+            if (index === -1) return;
+            
+            workflows.splice(index, 1);
+            
+            // 更新 activeWorkflowId（保持第一个激活的工作流ID）
+            const firstActive = workflows.find(wf => wf.active);
+            activeWorkflowId = firstActive ? firstActive.id : null;
+            
+            saveWorkflows();
+            renderWorkflowList();
+        }
+
+        function buildWorkflowSteps(platformDisplay) {
+            const inputTypeLabel = inputTypeDictionary[workflowConfig.app.inputType] || workflowConfig.app.inputType;
+            const labels = Object.values(workflowConfig.algo.labelMap).join(' / ');
+
+            return [
+                {
+                    icon: '📥',
+                    title: '数据输入',
+                    description: `从 ${workflowConfig.app.input} 目录获取图片或流式数据，支持无限循环读取。`,
+                    tags: [`输入类型: ${inputTypeLabel}`, `循环读取: ${workflowConfig.app.infinite ? '是' : '否'}`, `平台: ${platformDisplay}`]
+                },
+                {
+                    icon: '🧹',
+                    title: '预处理',
+                    description: '按照算法预设执行缩放、色彩及归一化等预处理，保障模型输入一致性。',
+                    tags: [`模型目录: ${workflowConfig.app.modelDir}`, `多标签: ${workflowConfig.algo.multiLabel ? '开启' : '关闭'}`]
+                },
+                {
+                    icon: '🧠',
+                    title: '模型推理',
+                    description: `加载 ${workflowConfig.algo.modelName} 模型，执行 ${workflowConfig.app.type} 推理任务。`,
+                    tags: [`置信度: ${workflowConfig.algo.confidence}`, `NMS: ${workflowConfig.algo.nms}`, `推理频率: ${workflowConfig.app.inferFrequency}fps`]
+                },
+                {
+                    icon: '🎨',
+                    title: '结果渲染',
+                    description: '根据标签映射绘制检测框及属性信息，输出可视化结果。',
+                    tags: [`OSD: ${workflowConfig.algo.osd ? '开启' : '关闭'}`, `标签: ${labels}`]
+                },
+                {
+                    icon: '📤',
+                    title: '结果输出',
+                    description: `将推理结果输出至 ${workflowConfig.app.out}，可按需扩展至实时流。`,
+                    tags: [`输出路径: ${workflowConfig.app.out}`, '扩展能力: 文件 / 流媒体']
+                }
+            ];
+        }
+
+        // 假模型数据
+        let modelsData = [
+            { id: 'model_1', name: 'YOLOv8s', type: 'Object Detection', framework: 'PyTorch', version: '8.0.0', size: '22.5 MB', accuracy: 'mAP50: 44.9%', status: 'active', lastUpdate: '2025-11-15' },
+            { id: 'model_2', name: 'YOLOv5s', type: 'Object Detection', framework: 'PyTorch', version: '7.0', size: '14.1 MB', accuracy: 'mAP50: 37.4%', status: 'active', lastUpdate: '2025-11-10' },
+            { id: 'model_3', name: 'RetinaFace', type: 'Face Detection', framework: 'MXNet', version: '1.0', size: '27.3 MB', accuracy: 'AP: 96.5%', status: 'active', lastUpdate: '2025-11-08' }
+        ];
+
+        // 流水线模式
+        const pipelineModesData = [
+            { id: 'task-parallel', icon: '⚡', title: '任务并行', description: '同时处理多个独立任务，适合批量场景' },
+            { id: 'pipeline-parallel', icon: '🔁', title: '流水线并行', description: '阶段并行，提高吞吐量' },
+            { id: 'data-parallel', icon: '📊', title: '数据并行', description: '输入拆分并行处理' },
+            { id: 'no-parallel', icon: '📌', title: '不使用并行', description: '串行执行，便于调试' }
+        ];
+
+        function renderModels() {
+            const grid = document.getElementById('modelGrid');
+            if (!grid) return;
+            
+            if (modelsData.length === 0) {
+                grid.innerHTML = '<p style="text-align:center; color:#7f8c8d; padding:40px;">暂无模型，点击"新增模型"开始添加。</p>';
+                return;
+            }
+            
+            grid.innerHTML = modelsData.map(m => `
+                <div class="model-card">
+                    <div class="model-header">
+                        <div class="model-name">${m.name}</div>
+                        <div class="model-status ${m.status === 'active' ? 'status-active' : 'status-inactive'}">${m.status === 'active' ? '✅ 运行中' : '⏸️ 已停止'}</div>
+                    </div>
+                    <div style="color:#7f8c8d; font-size:13px; margin-bottom:12px;">
+                        <div><strong>类型:</strong> ${m.type}</div>
+                        <div><strong>框架:</strong> ${m.framework}</div>
+                        <div><strong>版本:</strong> ${m.version}</div>
+                        <div><strong>大小:</strong> ${m.size}</div>
+                        <div><strong>精度:</strong> ${m.accuracy}</div>
+                        <div><strong>更新:</strong> ${m.lastUpdate}</div>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                        <button class="workflow-action-btn ${m.status === 'active' ? 'deactivate' : 'activate'}" 
+                                onclick="toggleModelStatus('${m.id}')" 
+                                style="flex:1; padding:6px 12px;">
+                            ${m.status === 'active' ? '⏸️ 停止' : '▶️ 启动'}
+                        </button>
+                        <button class="workflow-action-btn edit" 
+                                onclick="configureModel('${m.id}')" 
+                                style="flex:1; padding:6px 12px;">
+                            ⚙️ 配置
+                        </button>
+                        <button class="workflow-action-btn delete" 
+                                onclick="deleteModel('${m.id}')" 
+                                style="padding:6px 12px;">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 模型管理操作函数
+        function addNewModel() {
+            const modelName = prompt('请输入模型名称:', 'NewModel');
+            if (!modelName || !modelName.trim()) return;
+            
+            const modelType = prompt('请输入模型类型 (例如: Object Detection, Face Detection):', 'Object Detection');
+            const framework = prompt('请输入模型框架 (例如: PyTorch, TensorFlow):', 'PyTorch');
+            const version = prompt('请输入模型版本:', '1.0.0');
+            
+            const newModel = {
+                id: 'model_' + Date.now(),
+                name: modelName.trim(),
+                type: modelType || 'Object Detection',
+                framework: framework || 'PyTorch',
+                version: version || '1.0.0',
+                size: '0 MB',
+                accuracy: 'N/A',
+                status: 'inactive',
+                lastUpdate: new Date().toISOString().slice(0, 10)
+            };
+            
+            modelsData.push(newModel);
+            saveModels();
+            renderModels();
+            alert('模型添加成功！');
+        }
+
+        function toggleModelStatus(modelId) {
+            const model = modelsData.find(m => m.id === modelId);
+            if (!model) return;
+            
+            model.status = model.status === 'active' ? 'inactive' : 'active';
+            saveModels();
+            renderModels();
+        }
+
+        function configureModel(modelId) {
+            const model = modelsData.find(m => m.id === modelId);
+            if (!model) return;
+            
+            const newSize = prompt(`配置模型大小 (当前: ${model.size}):`, model.size);
+            if (newSize) model.size = newSize;
+            
+            const newAccuracy = prompt(`配置模型精度 (当前: ${model.accuracy}):`, model.accuracy);
+            if (newAccuracy) model.accuracy = newAccuracy;
+            
+            const newVersion = prompt(`配置模型版本 (当前: ${model.version}):`, model.version);
+            if (newVersion) model.version = newVersion;
+            
+            model.lastUpdate = new Date().toISOString().slice(0, 10);
+            
+            saveModels();
+            renderModels();
+            alert('模型配置已更新！');
+        }
+
+        function deleteModel(modelId) {
+            if (!confirm('确定要删除此模型吗？')) return;
+            
+            const index = modelsData.findIndex(m => m.id === modelId);
+            if (index === -1) return;
+            
+            modelsData.splice(index, 1);
+            saveModels();
+            renderModels();
+        }
+
+        function refreshModels() {
+            renderModels();
+        }
+
+        function saveModels() {
+            try {
+                localStorage.setItem('nndeploy_models', JSON.stringify(modelsData));
+            } catch (error) {
+                console.error('保存模型数据失败:', error);
+            }
+        }
+
+        function loadModels() {
+            try {
+                const saved = localStorage.getItem('nndeploy_models');
+                if (saved) {
+                    modelsData = JSON.parse(saved);
+                }
+            } catch (error) {
+                console.error('加载模型数据失败:', error);
+            }
+        }
+
+        function renderPipelineOptions() {
+            const c = document.getElementById('pipelineOptions');
+            c.innerHTML = pipelineModesData.map((p, i) => `
+                <div class="pipeline-option ${i===0? 'selected':''}" onclick="selectPipeline(this)">
+                    <div class="pipeline-icon">${p.icon}</div>
+                    <div style="font-weight:600;">${p.title}</div>
+                    <div style="color:#7f8c8d; font-size:13px; margin-top:8px;">${p.description}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectPipeline(el) { document.querySelectorAll('.pipeline-option').forEach(x=>x.classList.remove('selected')); el.classList.add('selected'); }
+
+        // 工作流配置编辑功能
+        function openConfigModal(workflowId) {
+            currentWorkflowId = workflowId || activeWorkflowId;
+            const workflow = getWorkflowById(currentWorkflowId);
+            if (!workflow) {
+                alert('工作流不存在');
+                return;
+            }
+            
+            const config = workflow.config;
+            
+            // 设置工作流名称
+            document.getElementById('config-workflow-name').value = workflow.name;
+            
+            // 填充当前配置到表单
+            document.getElementById('config-platform').value = config.platform.current;
+            document.getElementById('config-modelName').value = config.algo.modelName;
+            document.getElementById('config-confidence').value = config.algo.confidence;
+            document.getElementById('config-nms').value = config.algo.nms;
+            document.getElementById('config-multiLabel').value = config.algo.multiLabel.toString();
+            document.getElementById('config-osd').value = config.algo.osd.toString();
+            
+            // 标签映射转换为字符串
+            const labelMapStr = Object.entries(config.algo.labelMap)
+                .map(([key, value]) => `${key}:${value}`)
+                .join(',');
+            document.getElementById('config-labelMap').value = labelMapStr;
+            
+            document.getElementById('config-modelDir').value = config.app.modelDir;
+            document.getElementById('config-inputType').value = config.app.inputType;
+            document.getElementById('config-infinite').value = config.app.infinite.toString();
+            document.getElementById('config-input').value = config.app.input;
+            document.getElementById('config-output').value = config.app.out;
+            document.getElementById('config-inferFrequency').value = config.app.inferFrequency;
+            document.getElementById('config-appType').value = config.app.type;
+            
+            // 显示模态框
+            document.getElementById('configModal').classList.add('show');
+        }
+
+        function closeConfigModal() {
+            document.getElementById('configModal').classList.remove('show');
+        }
+
+        function saveConfig() {
+            try {
+                if (!currentWorkflowId) {
+                    alert('没有选中的工作流');
+                    return;
+                }
+                
+                const workflow = getWorkflowById(currentWorkflowId);
+                if (!workflow) {
+                    alert('工作流不存在');
+                    return;
+                }
+                
+                // 验证工作流名称
+                const workflowName = document.getElementById('config-workflow-name').value.trim();
+                if (!workflowName) {
+                    alert('请输入工作流名称');
+                    return;
+                }
+                
+                // 验证必填字段
+                const modelName = document.getElementById('config-modelName').value.trim();
+                if (!modelName) {
+                    alert('请输入模型名称');
+                    return;
+                }
+                
+                const confidence = parseFloat(document.getElementById('config-confidence').value);
+                if (isNaN(confidence) || confidence < 0 || confidence > 1) {
+                    alert('置信度必须在 0-1 之间');
+                    return;
+                }
+                
+                const nms = parseFloat(document.getElementById('config-nms').value);
+                if (isNaN(nms) || nms < 0 || nms > 1) {
+                    alert('NMS 阈值必须在 0-1 之间');
+                    return;
+                }
+                
+                const inferFreq = parseInt(document.getElementById('config-inferFrequency').value);
+                if (isNaN(inferFreq) || inferFreq < 1 || inferFreq > 120) {
+                    alert('推理频率必须在 1-120 fps 之间');
+                    return;
+                }
+                
+                // 更新工作流名称
+                workflow.name = workflowName;
+                
+                // 读取表单数据并更新工作流配置
+                workflow.config.platform.current = document.getElementById('config-platform').value;
+                workflow.config.algo.modelName = modelName;
+                workflow.config.algo.confidence = confidence;
+                workflow.config.algo.nms = nms;
+                workflow.config.algo.multiLabel = document.getElementById('config-multiLabel').value === 'true';
+                workflow.config.algo.osd = document.getElementById('config-osd').value === 'true';
+                
+                // 解析标签映射
+                const labelMapStr = document.getElementById('config-labelMap').value.trim();
+                const newLabelMap = {};
+                if (labelMapStr) {
+                    const items = labelMapStr.split(',');
+                    for (let item of items) {
+                        const parts = item.split(':');
+                        if (parts.length === 2) {
+                            const key = parts[0].trim();
+                            const value = parts[1].trim();
+                            if (key && value) {
+                                newLabelMap[key] = value;
+                            }
+                        }
+                    }
+                    if (Object.keys(newLabelMap).length === 0) {
+                        alert('标签映射格式不正确，请使用格式：0:人,56:桌子');
+                        return;
+                    }
+                }
+                workflow.config.algo.labelMap = newLabelMap;
+                
+                workflow.config.app.modelDir = document.getElementById('config-modelDir').value.trim();
+                workflow.config.app.inputType = document.getElementById('config-inputType').value;
+                workflow.config.app.infinite = document.getElementById('config-infinite').value === 'true';
+                workflow.config.app.input = document.getElementById('config-input').value.trim();
+                workflow.config.app.out = document.getElementById('config-output').value.trim();
+                workflow.config.app.inferFrequency = inferFreq;
+                workflow.config.app.type = document.getElementById('config-appType').value;
+                
+                // 保存到 localStorage
+                saveWorkflows();
+                
+                // 刷新工作流列表
+                renderWorkflowList();
+                
+                // 关闭模态框
+                closeConfigModal();
+                
+                // 提示保存成功
+                alert('配置已更新并保存！');
+            } catch (error) {
+                alert('配置保存失败：' + error.message);
+            }
+        }
+
+        // 点击模态框外部关闭
+        document.addEventListener('click', function(e) {
+            const modal = document.getElementById('configModal');
+            if (e.target === modal) {
+                closeConfigModal();
+            }
+        });
+
+        // 重置为默认配置
+        function resetConfigToDefault() {
+            if (!currentWorkflowId) {
+                alert('没有选中的工作流');
+                return;
+            }
+            
+            const workflow = getWorkflowById(currentWorkflowId);
+            if (!workflow) {
+                alert('工作流不存在');
+                return;
+            }
+            
+            if (confirm('确定要重置当前工作流为默认配置吗？')) {
+                // 恢复默认配置
+                workflow.config = JSON.parse(JSON.stringify(defaultWorkflowTemplate));
+                
+                // 保存到 localStorage
+                saveWorkflows();
+                
+                // 刷新工作流列表
+                renderWorkflowList();
+                
+                // 关闭模态框
+                closeConfigModal();
+                
+                alert('已重置为默认配置！');
+            }
+        }
+
+        // 导出配置为 JSON 文件
+        // 导出所有工作流配置
+        function exportAllWorkflows() {
+            try {
+                const configJson = JSON.stringify(workflows, null, 2);
+                const blob = new Blob([configJson], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `workflows_config_${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                alert('工作流配置已导出');
+            } catch (error) {
+                alert('导出配置失败：' + error.message);
+            }
+        }
+        
+        // 导出单个工作流（兼容旧版本）
+        function exportConfig() {
+            const workflow = getActiveWorkflow();
+            if (!workflow) {
+                alert('没有激活的工作流');
+                return;
+            }
+            
+            try {
+                const configJson = JSON.stringify(workflow.config, null, 2);
+                const blob = new Blob([configJson], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `workflow_${workflow.name}_${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                alert('工作流配置已导出');
+            } catch (error) {
+                alert('导出配置失败：' + error.message);
+            }
+        }
+
+        // 导入工作流配置从 JSON 文件
+        function importConfig(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    
+                    // 判断是导入单个工作流配置还是多个工作流
+                    if (Array.isArray(imported)) {
+                        // 导入多个工作流
+                        if (imported.length === 0) {
+                            throw new Error('工作流配置为空');
+                        }
+                        
+                        // 验证每个工作流的结构
+                        for (let wf of imported) {
+                            if (!wf.id || !wf.name || !wf.config) {
+                                throw new Error('工作流格式不正确');
+                            }
+                            if (!wf.config.platform || !wf.config.algo || !wf.config.app) {
+                                throw new Error('工作流配置格式不正确');
+                            }
+                        }
+                        
+                        // 替换所有工作流
+                        workflows = imported;
+                        
+                        // 确保至少有一个激活的工作流
+                        const hasActive = workflows.some(wf => wf.active);
+                        if (!hasActive && workflows.length > 0) {
+                            workflows[0].active = true;
+                        }
+                        
+                        // 更新 activeWorkflowId
+                        const activeWf = workflows.find(wf => wf.active);
+                        activeWorkflowId = activeWf ? activeWf.id : null;
+                        
+                    } else if (imported.platform && imported.algo && imported.app) {
+                        // 导入单个工作流配置（旧格式）
+                        const newWorkflow = {
+                            id: 'wf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                            name: '导入的工作流',
+                            active: false,
+                            config: imported
+                        };
+                        
+                        workflows.push(newWorkflow);
+                        
+                    } else {
+                        throw new Error('配置文件格式不正确');
+                    }
+                    
+                    // 保存到 localStorage
+                    saveWorkflows();
+                    
+                    // 重新渲染
+                    renderWorkflowList();
+                    
+                    alert('配置导入成功！');
+                } catch (error) {
+                    alert('导入配置失败：' + error.message);
+                }
+            };
+            reader.readAsText(file);
+            
+            // 重置 input，允许重复导入同一文件
+            event.target.value = '';
+        }
+
+        function renderWorkflowSummary() {
+            const summaryEl = document.getElementById('workflowSummary');
+            if (!summaryEl) return;
+
+            const workflow = getActiveWorkflow();
+            if (!workflow) {
+                summaryEl.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">暂无激活的工作流</div>';
+                return;
+            }
+
+            const config = workflow.config;
+            const platformDisplay = config.platform.current.charAt(0).toUpperCase() + config.platform.current.slice(1);
+            const supportedPlatforms = config.platform.supported.map(item => item.toUpperCase());
+            const inputTypeLabel = inputTypeDictionary[config.app.inputType] || config.app.inputType;
+
+            const summaryCards = [
+                { icon: '📋', title: '工作流名称', value: workflow.name, subtitle: workflow.active ? '✅ 当前激活' : '' },
+                { icon: '🧩', title: '部署平台', value: platformDisplay, subtitle: `支持：${supportedPlatforms.join(' | ')}` },
+                { icon: '🧠', title: '模型配置', value: config.algo.modelName, subtitle: `置信度 ${config.algo.confidence} · NMS ${config.algo.nms}` },
+                { icon: '🔁', title: '业务流', value: `${config.app.input} → ${config.app.out}`, subtitle: `${inputTypeLabel} · ${config.app.inferFrequency}fps` }
+            ];
+
+            summaryEl.innerHTML = summaryCards.map(card => `
+                <div class="workflow-summary-card">
+                    <div class="card-icon">${card.icon}</div>
+                    <div class="card-title">${card.title}</div>
+                    <div class="card-value">${card.value}</div>
+                    <div class="card-subtitle">${card.subtitle}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderWorkflow() {
+            const summaryEl = document.getElementById('workflowSummary');
+            const diagramEl = document.getElementById('workflowDiagram');
+            const detailsEl = document.getElementById('workflowDetails');
+            if (!summaryEl || !diagramEl || !detailsEl) return;
+
+            const workflow = getActiveWorkflow();
+            if (!workflow) {
+                summaryEl.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">暂无激活的工作流</div>';
+                diagramEl.innerHTML = '';
+                detailsEl.innerHTML = '';
+                return;
+            }
+
+            const workflowConfig = workflow.config;
+            const platformDisplay = workflowConfig.platform.current.charAt(0).toUpperCase() + workflowConfig.platform.current.slice(1);
+            const supportedPlatforms = workflowConfig.platform.supported.map(item => item.toUpperCase());
+            const inputTypeLabel = inputTypeDictionary[workflowConfig.app.inputType] || workflowConfig.app.inputType;
+            const labelSummary = Object.entries(workflowConfig.algo.labelMap).map(([code, label]) => `${code}: ${label}`).join('，');
+
+            const summaryCards = [
+                { icon: '📋', title: '工作流名称', value: workflow.name, subtitle: workflow.active ? '✅ 当前激活' : '' },
+                { icon: '🧩', title: '部署平台', value: platformDisplay, subtitle: `支持：${supportedPlatforms.join(' | ')}` },
+                { icon: '🧠', title: '模型配置', value: workflowConfig.algo.modelName, subtitle: `置信度 ${workflowConfig.algo.confidence} · NMS ${workflowConfig.algo.nms}` },
+                { icon: '📦', title: '模型目录', value: workflowConfig.app.modelDir, subtitle: `多标签：${workflowConfig.algo.multiLabel ? '开启' : '关闭'} · OSD：${workflowConfig.algo.osd ? '开启' : '关闭'}` },
+                { icon: '🔁', title: '业务流', value: `${workflowConfig.app.input} → ${workflowConfig.app.out}`, subtitle: `输入类型：${inputTypeLabel} · 推理频率：${workflowConfig.app.inferFrequency}fps` }
+            ];
+
+            summaryEl.innerHTML = summaryCards.map(card => `
+                <div class="workflow-summary-card">
+                    <div class="card-icon">${card.icon}</div>
+                    <div class="card-title">${card.title}</div>
+                    <div class="card-value">${card.value}</div>
+                    <div class="card-subtitle">${card.subtitle}</div>
+                </div>
+            `).join('');
+
+            const steps = buildWorkflowSteps(platformDisplay);
+
+            diagramEl.innerHTML = steps.map(step => `
+                <div class="workflow-step">
+                    <div class="workflow-icon">${step.icon}</div>
+                    <h4>${step.title}</h4>
+                    <p>${step.description}</p>
+                    <div class="workflow-tags">
+                        ${step.tags.map(tag => `<span class="workflow-tag">${tag}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            const detailSections = [
+                {
+                    title: '平台配置',
+                    items: [
+                        { label: '运行平台', value: platformDisplay },
+                        { label: '支持平台', value: supportedPlatforms.join(' / ') }
+                    ]
+                },
+                {
+                    title: '算法参数',
+                    items: [
+                        { label: '模型名称', value: workflowConfig.algo.modelName },
+                        { label: '置信度阈值', value: workflowConfig.algo.confidence },
+                        { label: 'NMS 阈值', value: workflowConfig.algo.nms },
+                        { label: '多标签', value: workflowConfig.algo.multiLabel ? '开启' : '关闭' },
+                        { label: 'OSD 渲染', value: workflowConfig.algo.osd ? '开启' : '关闭' },
+                        { label: '标签映射', value: labelSummary }
+                    ]
+                },
+                {
+                    title: '应用输入/输出',
+                    items: [
+                        { label: '输入类型', value: inputTypeLabel },
+                        { label: '输入路径', value: workflowConfig.app.input },
+                        { label: '无限循环', value: workflowConfig.app.infinite ? '是' : '否' },
+                        { label: '输出路径', value: workflowConfig.app.out },
+                        { label: '推理频率', value: `${workflowConfig.app.inferFrequency} FPS` },
+                        { label: '应用类型', value: workflowConfig.app.type }
+                    ]
+                },
+                {
+                    title: '服务与扩展',
+                    items: [
+                        { label: '渲染输出 (OSD)', value: workflowConfig.app.osd ? '启用' : '关闭' },
+                        { label: 'WebSocket 服务', value: workflowConfig.app.service.websocket.port ? `端口 ${workflowConfig.app.service.websocket.port}` : '未开启' },
+                        { label: '电子围栏', value: workflowConfig.app.fence ? '已配置' : '未配置' }
+                    ]
+                }
+            ];
+
+            detailsEl.innerHTML = detailSections.map(section => `
+                <div class="workflow-detail-section">
+                    <h4>${section.title}</h4>
+                    <div class="workflow-detail-list">
+                        ${section.items.map(item => `<div class="workflow-detail-item"><strong>${item.label}：</strong>${item.value}</div>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 监控逻辑（折线图）
+        let monitorCharts = {};
+        let monitorIntervals = {};
+
+        function createMonitorCard(id, title, unit) {
+            return `
+                <div class="monitor-card">
+                    <div class="monitor-header"><div class="monitor-title">${title}</div><div id="${id}-value" class="monitor-value">0${unit}</div></div>
+                    <div class="chart-container"><canvas id="${id}-chart"></canvas></div>
+                </div>
+            `;
+        }
+
+        function renderMonitor() {
+            const grid = document.getElementById('monitorGrid');
+            grid.innerHTML = [
+                createMonitorCard('cpu','CPU 使用率','%'),
+                createMonitorCard('npu','NPU 使用率','%'),
+                createMonitorCard('memory','内存使用',' GB'),
+                createMonitorCard('gpu','显存使用',' GB')
+            ].join('');
+            initMonitorCharts();
+        }
+
+        function initMonitorCharts() {
+            ['cpu','npu','memory','gpu'].forEach(r=>{
+                const canvas = document.getElementById(`${r}-chart`);
+                if(!canvas) return;
+                const ctx = canvas.getContext('2d');
+                canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+                monitorCharts[r] = { ctx, data: new Array(60).fill(0), max: (r==='memory'||r==='gpu')?16:100 };
+                startMonitorUpdate(r);
+            });
+        }
+
+        function startMonitorUpdate(r) {
+            monitorIntervals[r] = setInterval(()=>{
+                const ch = monitorCharts[r]; if(!ch) return;
+                let v = 0;
+                if (r==='cpu') v = 20 + Math.random()*60;
+                else if (r==='npu') v = 30 + Math.random()*50;
+                else if (r==='memory') v = 4 + Math.random()*6;
+                else if (r==='gpu') v = 1 + Math.random()*4;
+                ch.data.push(v); ch.data.shift();
+                const valEl = document.getElementById(`${r}-value`); if(valEl) valEl.textContent = (r==='memory'||r==='gpu')? v.toFixed(2)+' GB' : v.toFixed(1)+'%';
+                drawChart(r);
+            }, 1000);
+        }
+
+        function drawChart(r) {
+            const ch = monitorCharts[r]; if(!ch) return; const ctx = ch.ctx; const c = ctx.canvas; const data = ch.data; const max = ch.max;
+            ctx.clearRect(0,0,c.width,c.height);
+            ctx.strokeStyle = '#e6eef8'; ctx.lineWidth = 1; for(let i=0;i<4;i++){ const y=(c.height/4)*i; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(c.width,y); ctx.stroke(); }
+            ctx.beginPath(); ctx.strokeStyle='#3498db'; ctx.lineWidth=2; data.forEach((v,i)=>{ const x=i*(c.width/(data.length-1)); const y=c.height-(v/max)*c.height; if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }); ctx.stroke();
+            ctx.lineTo(c.width,c.height); ctx.lineTo(0,c.height); ctx.closePath(); ctx.fillStyle='rgba(52,152,219,0.08)'; ctx.fill();
+        }
+
+        function stopMonitor() { Object.keys(monitorIntervals).forEach(k=>clearInterval(monitorIntervals[k])); monitorIntervals={}; }
+
+        // 日志
+        function generateLogs() {
+            const levels = [ ['info','INFO','log-level-info'], ['success','SUCCESS','log-level-success'], ['warn','WARN','log-level-warn'], ['error','ERROR','log-level-error'] ];
+            const msgs = ['NNDeploy 启动成功','加载模型: YOLOv8s.onnx','TensorRT 初始化完成','推理任务开始','检测到 5 个目标','推理耗时: 9.3ms','NPU 分配成功','预处理完成','后处理完成','工作流配置已保存'];
+            const now = new Date(); let out=''; for(let i=0;i<120;i++){ const t=new Date(now - i*2000); const lvl=levels[Math.floor(Math.random()*levels.length)]; const m=msgs[Math.floor(Math.random()*msgs.length)]; out = `<div class="log-entry"><span class="log-time">[${t.toLocaleTimeString('zh-CN',{hour12:false})}]</span> <span class="${lvl[2]}">[${lvl[1]}]</span> ${m}</div>` + out; }
+            return out;
+        }
+
+        function renderLogs(){ document.getElementById('logContainer').innerHTML = generateLogs(); const c=document.getElementById('logContainer'); c.scrollTop = c.scrollHeight; }
+
+        // 页面切换逻辑
+        function showPage(name) {
+            document.querySelectorAll('.page-container').forEach(p=>p.classList.add('hidden'));
+            const el = document.getElementById('page-'+name); if(el) el.classList.remove('hidden');
+            // 监控页面要启动更新
+            if(name==='monitor') { setTimeout(()=>{ renderMonitor(); }, 120); } else { stopMonitor(); }
+            if(name==='workflow') { 
+                renderWorkflowList(); 
+            }
+            // 设置标题和菜单激活
+            const link = document.querySelector(`.menu-link[data-page="${name}"]`);
+            if(link) {
+                document.getElementById('page-title').textContent = link.dataset.title || link.textContent.trim();
+                document.querySelectorAll('.menu-link').forEach(l=>l.classList.remove('active'));
+                link.classList.add('active');
+            }
+        }
+
+        // 路由处理
+        window.addEventListener('hashchange', ()=>{
+            const h = window.location.hash || '#/';
+            if(h === '#/workflow') showPage('workflow');
+            else if(h === '#/models') showPage('models');
+            else if(h === '#/pipeline') showPage('pipeline');
+            else if(h === '#/monitor') showPage('monitor');
+            else if(h === '#/logs') showPage('logs');
+            else showPage('dashboard');
+        });
+
+        // 拦截内部菜单点击，使用 SPA 切换
+        document.addEventListener('click', function(e){ 
+            const a = e.target.closest('.menu-link'); 
+            if(!a) return; 
+            e.preventDefault();
+            const targetHash = a.getAttribute('href');
+            window.location.hash = targetHash;
+        });
+
+        // 应用初始化函数
+        function initApp() {
+            // 加载保存的工作流配置
+            loadWorkflows();
+            // 加载保存的模型数据
+            loadModels();
+            
+            renderModels();
+            renderPipelineOptions();
+            renderLogs();
+            renderWorkflowList();
+
+            const reactContainer = document.getElementById('react-app-container');
+            const customDashboard = document.getElementById('custom-dashboard');
+            if (reactContainer) reactContainer.style.display = 'none';
+            if (customDashboard) customDashboard.style.display = 'block';
+
+            const h = window.location.hash || '#/';
+            if(h === '#/workflow') showPage('workflow');
+            else if(h === '#/models') showPage('models');
+            else if(h === '#/pipeline') showPage('pipeline');
+            else if(h === '#/monitor') showPage('monitor');
+            else if(h === '#/logs') showPage('logs');
+            else showPage('dashboard');
+        }
+
+        // 页面加载时检查登录状态
+        window.addEventListener('load', ()=>{
+            checkLoginStatus();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,264 @@
+syntax = "proto3";
+
+package infer;
+
+option go_package = "github.com/yourorg/manage-system/proto/infer";
+
+// ===========================
+// 推理服务主接口
+// ===========================
+service InferenceService {
+  // 摄像头管理
+  rpc AddCamera(AddCameraRequest) returns (AddCameraResponse);
+  rpc RemoveCamera(RemoveCameraRequest) returns (RemoveCameraResponse);
+  rpc ListCameras(ListCamerasRequest) returns (ListCamerasResponse);
+  rpc GetCameraStatus(GetCameraStatusRequest) returns (GetCameraStatusResponse);
+  
+  // 工作流管理
+  rpc DeployWorkflow(DeployWorkflowRequest) returns (DeployWorkflowResponse);
+  rpc UpdateWorkflow(UpdateWorkflowRequest) returns (UpdateWorkflowResponse);
+  rpc DeleteWorkflow(DeleteWorkflowRequest) returns (DeleteWorkflowResponse);
+  rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse);
+  
+  // 推理请求
+  rpc InferSingleFrame(InferRequest) returns (InferResponse);
+  rpc InferBatch(InferBatchRequest) returns (InferBatchResponse);
+  
+  // 结果订阅（服务器推送流）
+  rpc SubscribeResults(SubscribeRequest) returns (stream InferResult);
+  
+  // 健康检查
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+  
+  // 插件管理
+  rpc ListPlugins(ListPluginsRequest) returns (ListPluginsResponse);
+  rpc LoadPlugin(LoadPluginRequest) returns (LoadPluginResponse);
+  rpc UnloadPlugin(UnloadPluginRequest) returns (UnloadPluginResponse);
+}
+
+// ===========================
+// 摄像头管理消息
+// ===========================
+message AddCameraRequest {
+  string camera_id = 1;           // 摄像头唯一标识
+  string rtsp_url = 2;            // RTSP 流地址
+  string workflow_id = 3;         // 关联的工作流 ID
+  map<string, string> config = 4; // 配置参数（FPS, ROI, etc.）
+}
+
+message AddCameraResponse {
+  bool success = 1;
+  string message = 2;
+  string camera_id = 3;
+}
+
+message RemoveCameraRequest {
+  string camera_id = 1;
+}
+
+message RemoveCameraResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListCamerasRequest {
+  // 预留分页参数
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListCamerasResponse {
+  repeated CameraInfo cameras = 1;
+  int32 total_count = 2;
+}
+
+message CameraInfo {
+  string camera_id = 1;
+  string rtsp_url = 2;
+  string workflow_id = 3;
+  CameraStatus status = 4;
+  int64 created_at = 5;           // Unix timestamp
+  int64 last_frame_time = 6;      // 最后一帧时间
+  int32 fps = 7;                  // 当前帧率
+}
+
+enum CameraStatus {
+  CAMERA_UNKNOWN = 0;
+  CAMERA_CONNECTING = 1;
+  CAMERA_RUNNING = 2;
+  CAMERA_STOPPED = 3;
+  CAMERA_ERROR = 4;
+}
+
+message GetCameraStatusRequest {
+  string camera_id = 1;
+}
+
+message GetCameraStatusResponse {
+  CameraInfo camera = 1;
+  bool success = 2;
+}
+
+// ===========================
+// 工作流管理消息
+// ===========================
+message DeployWorkflowRequest {
+  string workflow_id = 1;
+  string workflow_json = 2;       // JSON 格式的工作流定义
+  map<string, string> params = 3; // 参数覆盖
+}
+
+message DeployWorkflowResponse {
+  bool success = 1;
+  string message = 2;
+  string workflow_id = 3;
+}
+
+message UpdateWorkflowRequest {
+  string workflow_id = 1;
+  string workflow_json = 2;
+}
+
+message UpdateWorkflowResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message DeleteWorkflowRequest {
+  string workflow_id = 1;
+}
+
+message DeleteWorkflowResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListWorkflowsRequest {}
+
+message ListWorkflowsResponse {
+  repeated WorkflowInfo workflows = 1;
+}
+
+message WorkflowInfo {
+  string workflow_id = 1;
+  string name = 2;
+  string description = 3;
+  int64 created_at = 4;
+  int32 camera_count = 5;         // 使用此工作流的摄像头数量
+}
+
+// ===========================
+// 推理请求消息
+// ===========================
+message InferRequest {
+  string camera_id = 1;
+  bytes image_data = 2;           // 图像数据（JPEG/PNG）
+  int64 timestamp = 3;            // 时间戳
+  map<string, string> metadata = 4;
+}
+
+message InferResponse {
+  bool success = 1;
+  string message = 2;
+  string result_json = 3;         // JSON 格式的检测结果
+  bytes result_image = 4;         // 可选：结果可视化图像
+  int64 infer_time_ms = 5;        // 推理耗时（毫秒）
+}
+
+message InferBatchRequest {
+  repeated InferRequest requests = 1;
+}
+
+message InferBatchResponse {
+  repeated InferResponse responses = 1;
+  int64 total_time_ms = 2;
+}
+
+// ===========================
+// 结果订阅消息
+// ===========================
+message SubscribeRequest {
+  string camera_id = 1;           // 空表示订阅所有摄像头
+  ResultType filter_type = 2;     // 过滤结果类型
+}
+
+message InferResult {
+  string camera_id = 1;
+  string workflow_id = 2;
+  int64 timestamp = 3;
+  ResultType type = 4;
+  string result_json = 5;         // 检测结果 JSON
+  bytes image_data = 6;           // JPEG 压缩图像
+  float confidence = 7;           // 置信度
+}
+
+enum ResultType {
+  RESULT_ALL = 0;
+  RESULT_NORMAL = 1;              // 正常
+  RESULT_ALARM = 2;               // 告警
+}
+
+// ===========================
+// 健康检查消息
+// ===========================
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  HealthStatus status = 1;
+  int64 timestamp = 2;
+  SystemInfo system_info = 3;
+  int32 camera_count = 4;
+  int32 workflow_count = 5;
+  int32 plugin_count = 6;
+}
+
+enum HealthStatus {
+  UNKNOWN = 0;
+  SERVING = 1;
+  NOT_SERVING = 2;
+  DEGRADED = 3;                   // 降级服务（部分功能异常）
+}
+
+message SystemInfo {
+  bool gpu_available = 1;
+  float gpu_utilization = 2;      // GPU 使用率 (0-100)
+  float memory_usage_mb = 3;      // 内存使用（MB）
+  float cpu_usage = 4;            // CPU 使用率 (0-100)
+}
+
+// ===========================
+// 插件管理消息
+// ===========================
+message ListPluginsRequest {}
+
+message ListPluginsResponse {
+  repeated PluginInfo plugins = 1;
+}
+
+message PluginInfo {
+  string name = 1;
+  string version = 2;
+  string type = 3;                // "detection", "ocr", "segmentation"
+  repeated string supported_backends = 4;
+  bool loaded = 5;
+  string description = 6;
+}
+
+message LoadPluginRequest {
+  string plugin_path = 1;         // .so 文件路径
+}
+
+message LoadPluginResponse {
+  bool success = 1;
+  string message = 2;
+  PluginInfo plugin = 3;
+}
+
+message UnloadPluginRequest {
+  string plugin_name = 1;
+}
+
+message UnloadPluginResponse {
+  bool success = 1;
+  string message = 2;
+}

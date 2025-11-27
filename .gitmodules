@@ -1,0 +1,4 @@
+[submodule "3rdparty/nndeploy"]
+	path = 3rdparty/nndeploy
+	url = https://github.com/nndeploy/nndeploy.git
+	branch = main

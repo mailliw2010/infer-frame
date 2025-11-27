@@ -1,0 +1,227 @@
+#pragma once
+
+#include "inference/backend_interface.h"
+#include "utils/one_logger.hpp"
+#include "nndeploy/inference/tensorrt/tensorrt_inference.h"
+#include "nndeploy/inference/tensorrt/tensorrt_inference_param.h"
+#include <memory>
+
+namespace infer_frame {
+namespace backend {
+
+/**
+ * @brief TensorRT 推理后端
+ * 
+ * 使用 NNDeploy TensorRT 推理引擎
+ * 支持 NVIDIA GPU 平台 (Jetson / x86_64 CUDA)
+ */
+class TensorRTBackend : public BackendInterface {
+ public:
+  TensorRTBackend() : initialized_(false) {
+    LOG_DEBUG("TensorRTBackend constructor");
+  }
+  
+  ~TensorRTBackend() override {
+    deinit();
+  }
+  
+  base::Status init(const BackendConfig& config) override {
+    if (initialized_) {
+      return base::Status::Error(base::StatusCode::kErrorAlreadyInitialized,
+                                  "TensorRT backend already initialized");
+    }
+    
+    LOG_INFO("Initializing TensorRT backend...");
+    LOG_INFO("Model path: {}", config.model_path);
+    LOG_INFO("Device ID: {}", config.device_id);
+    
+    try {
+      // 创建 TensorRT 推理参数
+      param_ = std::make_shared<nndeploy::inference::TensorRtInferenceParam>();
+      param_->model_value_.push_back(config.model_path);
+      param_->device_type_ = nndeploy::base::kDeviceTypeCodeCuda;
+      param_->num_thread_ = 1;
+      param_->precision_type_ = nndeploy::inference::kPrecisionTypeFp16; // 使用 FP16 加速
+      param_->is_dynamic_shape_ = false;
+      param_->max_batch_size_ = 1;
+      
+      // 创建 TensorRT 推理实例（使用 ONNX 类型）
+      inference_ = std::make_shared<nndeploy::inference::TensorRtInference>(
+          nndeploy::base::kInferenceTypeOnnx);
+      
+      // 设置参数并初始化
+      inference_->setParam(param_);
+      auto status = inference_->init();
+      if (status != nndeploy::base::kStatusCodeOk) {
+        LOG_ERROR("Failed to initialize TensorRT inference engine");
+        return base::Status::Error(base::StatusCode::kErrorNotInitialized,
+                                    "TensorRT inference init failed");
+      }
+      
+      // 获取输入输出信息
+      input_infos_ = getInputInfos();
+      output_infos_ = getOutputInfos();
+      
+      LOG_INFO("TensorRT backend initialized successfully");
+      LOG_INFO("  Inputs: {}", input_infos_.size());
+      LOG_INFO("  Outputs: {}", output_infos_.size());
+      
+      config_ = config;
+      initialized_ = true;
+      
+      return base::Status::OK();
+      
+    } catch (const std::exception& e) {
+      LOG_ERROR("Exception during TensorRT initialization: {}", e.what());
+      return base::Status::Error(base::StatusCode::kErrorNotInitialized, e.what());
+    }
+  }
+  
+  base::Status infer(
+      const std::vector<base::Tensor*>& inputs,
+      std::vector<base::Tensor*>& outputs) override {
+    if (!initialized_) {
+      return base::Status::NotInitialized("TensorRT backend not initialized");
+    }
+    
+    LOG_DEBUG("TensorRT infer - inputs: {}, outputs: {}",
+              inputs.size(), outputs.size());
+    
+    try {
+      // 执行推理
+      auto status = inference_->run();
+      if (status != nndeploy::base::kStatusCodeOk) {
+        LOG_ERROR("TensorRT inference failed");
+        return base::Status::Error(base::StatusCode::kErrorInference,
+                                    "TensorRT run failed");
+      }
+      
+      return base::Status::OK();
+      
+    } catch (const std::exception& e) {
+      LOG_ERROR("Exception during inference: {}", e.what());
+      return base::Status::Error(base::StatusCode::kErrorInference, e.what());
+    }
+  }
+  
+  base::Status inferBatch(
+      const std::vector<std::vector<base::Tensor*>>& batch_inputs,
+      std::vector<std::vector<base::Tensor*>>& batch_outputs) override {
+    // 暂不支持批量推理，逐个处理
+    for (size_t i = 0; i < batch_inputs.size(); ++i) {
+      auto status = infer(batch_inputs[i], batch_outputs[i]);
+      if (!status.isOk()) {
+        return status;
+      }
+    }
+    return base::Status::OK();
+  }
+  
+  std::vector<base::TensorInfo> getInputInfos() const override {
+    if (!inference_) {
+      return {};
+    }
+    
+    std::vector<base::TensorInfo> infos;
+    auto inputs = inference_->getAllInputTensorVector();
+    
+    for (const auto& tensor : inputs) {
+      base::TensorInfo info;
+      auto desc = tensor->getDesc();
+      info.name = desc.name_;
+      
+      // 转换 shape
+      for (const auto& dim : desc.shape_) {
+        info.shape.push_back(static_cast<int>(dim));
+      }
+      
+      // 转换 dtype
+      info.dtype = desc.data_type_;
+      
+      infos.push_back(info);
+    }
+    
+    return infos;
+  }
+  
+  std::vector<base::TensorInfo> getOutputInfos() const override {
+    if (!inference_) {
+      return {};
+    }
+    
+    std::vector<base::TensorInfo> infos;
+    auto outputs = inference_->getAllOutputTensorVector();
+    
+    for (const auto& tensor : outputs) {
+      base::TensorInfo info;
+      auto desc = tensor->getDesc();
+      info.name = desc.name_;
+      
+      // 转换 shape
+      for (const auto& dim : desc.shape_) {
+        info.shape.push_back(static_cast<int>(dim));
+      }
+      
+      // 转换 dtype
+      info.dtype = desc.data_type_;
+      
+      infos.push_back(info);
+    }
+    
+    return infos;
+  }
+  
+  base::Status deinit() override {
+    if (!initialized_) {
+      return base::Status::OK();
+    }
+    
+    LOG_INFO("Deinitializing TensorRT backend...");
+    
+    // 释放 NNDeploy 推理实例
+    if (inference_) {
+      inference_->deinit();
+      inference_.reset();
+    }
+    
+    param_.reset();
+    input_infos_.clear();
+    output_infos_.clear();
+    
+    initialized_ = false;
+    LOG_INFO("TensorRT backend deinitialized");
+    
+    return base::Status::OK();
+  }
+  
+  BackendType getType() const override {
+    return BackendType::kTensorRT;
+  }
+  
+  std::string getName() const override {
+    return "TensorRT";
+  }
+  
+  bool isInitialized() const override {
+    return initialized_;
+  }
+  
+  std::map<std::string, float> getPerformanceStats() const override {
+    std::map<std::string, float> stats;
+    stats["infer_time_ms"] = 0.0f;  // TODO: 从推理引擎获取实际统计
+    return stats;
+  }
+  
+ private:
+  bool initialized_;
+  BackendConfig config_;
+  std::vector<base::TensorInfo> input_infos_;
+  std::vector<base::TensorInfo> output_infos_;
+  
+  // NNDeploy TensorRT 推理实例
+  std::shared_ptr<nndeploy::inference::TensorRtInference> inference_;
+  std::shared_ptr<nndeploy::inference::TensorRtInferenceParam> param_;
+};
+
+}  // namespace backend
+}  // namespace infer_frame

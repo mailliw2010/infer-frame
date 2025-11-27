@@ -1,0 +1,61 @@
+# Rockchip RKNN Platform Configuration
+# For RK3588/RK3576 platforms with RKNN NPU support
+
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_PROCESSOR aarch64)
+set(ARCH "aarch64")
+set(PLATFORM "aarch64")
+set(TARGET_PLATFORM "aarch64_rknn" CACHE STRING "")
+
+# Compiler flags
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O2 -g -Wall -fopenmp" CACHE STRING "")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -fopenmp -DNDEBUG" CACHE STRING "")
+
+# RKNN Toolkit
+option(ENABLE_RKNN "Enable RKNN NPU support" ON)
+if(ENABLE_RKNN)
+    set(RKNN_ROOT "/usr/lib/aarch64-linux-gnu" CACHE PATH "RKNN library directory")
+    if(EXISTS "${RKNN_ROOT}/librknnrt.so")
+        include_directories(/usr/include/rknn)
+        link_directories(${RKNN_ROOT})
+        set(RKNN_LIBRARIES rknnrt)
+        add_definitions(-DENABLE_RKNN)
+        add_definitions(-DRKNN_PLATFORM)
+        message(STATUS "RKNN found at ${RKNN_ROOT}")
+    else()
+        message(WARNING "RKNN not found at ${RKNN_ROOT}")
+    endif()
+endif()
+
+# RKNPU (for older RK3399Pro)
+option(ENABLE_RKNPU "Enable RKNPU support" OFF)
+if(ENABLE_RKNPU)
+    set(RKNPU_ROOT "/usr/lib" CACHE PATH "RKNPU library directory")
+    if(EXISTS "${RKNPU_ROOT}/librknpu.so")
+        link_directories(${RKNPU_ROOT})
+        set(RKNPU_LIBRARIES rknpu)
+        add_definitions(-DENABLE_RKNPU)
+    endif()
+endif()
+
+# RGA (Rockchip Graphics Acceleration)
+option(ENABLE_RGA "Enable RGA hardware image processing" ON)
+if(ENABLE_RGA)
+    find_library(RGA_LIBRARY rga PATHS /usr/lib/aarch64-linux-gnu)
+    if(RGA_LIBRARY)
+        set(RGA_LIBRARIES ${RGA_LIBRARY})
+        add_definitions(-DENABLE_RGA)
+        message(STATUS "RGA library found")
+    endif()
+endif()
+
+# MPP (Media Process Platform) for hardware decode
+option(ENABLE_MPP "Enable MPP hardware decoder" ON)
+if(ENABLE_MPP)
+    find_library(MPP_LIBRARY rockchip_mpp PATHS /usr/lib/aarch64-linux-gnu)
+    if(MPP_LIBRARY)
+        set(MPP_LIBRARIES ${MPP_LIBRARY})
+        add_definitions(-DENABLE_MPP)
+        message(STATUS "MPP library found")
+    endif()
+endif()

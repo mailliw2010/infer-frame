@@ -1,0 +1,36 @@
+# Build directories
+build/
+cmake-build-*/
+*.o
+*.so
+*.a
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Generated files
+*.pb.cc
+*.pb.h
+*.grpc.pb.cc
+*.grpc.pb.h
+
+# Logs
+*.log
+
+# Testing
+test_output/
+*.test
+
+# OS
+.DS_Store
+Thumbs.db
